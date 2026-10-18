@@ -1,2 +1,3 @@
-# Öffentlicher Signatur-Schlüssel von GG Digital (Updates werden nur mit diesem Schlüssel angenommen)
+# Öffentliche Signatur-Schlüssel von GG Digital (Haupt + Notfall). Updates werden nur mit einem davon angenommen.
 sicherung@gg-digital.net namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDqEmw+4dRVrU1F4kUYufyGYBtJYJ/2NQRD0157Cs3NL
+sicherung-notfall@gg-digital.net namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACDabtXicehwkgcOVehJQUu6/f/PlYfnQ+e2jZ93O5t
