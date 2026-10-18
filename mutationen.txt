@@ -1,0 +1,63 @@
+# <datei>|<sed-Ausdruck>: jede Zeile baut eine Schutzregel aus – test.sh --mutation muss sie alle erkennen
+# Bewusst ohne Mutation (nicht lokal nachstellbar, von Hand bzw. live geprüft):
+#   sichern.sh zweite tresor_belegt-Prüfung nach git add · lib.sh delete-generic-password vor dem Anlegen
+#   installieren.sh "${p%/}" in alle_pfade_im_stand (pfade() entfernt den Schrägstrich schon)
+#   installieren.sh Tresor-Ordner nicht leer → stop: restic init verweigert das selbst ("already contains keys"),
+#   die Zeile sorgt nur für eine verständliche Meldung
+sichern.sh|s/\[ "\$fern" = "\$(git rev-parse HEAD)" \]/true/
+sichern.sh|s/if tresor_belegt; then$/if false; then/
+sichern.sh|s/-le "\$MAX_ALTER_MIN"/-le 999999/
+sichern.sh|s/|| fehler "Hochladen zu GitHub[^"]*"/|| true/
+sichern.sh|s/-ge "\$WARN_GROESSE_MB"/-ge 999999/
+sichern.sh|s/\[ "\$lesbar" = VOLLZUGRIFF \] \&\& fehler/false \&\& fehler/
+sichern.sh|s/^  hochladen   # auch/  [ "$lesbar" = VOLLZUGRIFF ] || hochladen   # auch/
+sichern.sh|s/if \[ -n "\$lesbar" \]; then/if false; then/
+sichern.sh|s/|| fehler "Tresor-Prüfung fand Schäden[^"]*"/|| true/
+lib.sh|s/--exclude-file "\$WERKZEUG\/ausschluss.txt"//
+lib.sh|s/--exclude-larger-than 50M//
+lib.sh|s/\[ -f "\$AUSSCHLUSS_EIGEN" \] \&\&/false \&\&/
+lib.sh|s/-mmin -30/-mmin -9999999/
+lib.sh|s/-mmin +30 -delete/-mmin +30 -print/
+lib.sh|s/grep -qi "operation not permitted" "\$RESTIC_LOG"/grep -qi "gibtsnicht" "$RESTIC_LOG"/
+lib.sh|s/grep -ci "permission denied" "\$RESTIC_LOG"/grep -ci "gibtsnicht" "$RESTIC_LOG"/
+lib.sh|s/mv -f "\$RESTIC_LOG" "\$RESTIC_LOG.vorher"/true/
+lib.sh|s/plist de.ggdigital.sicherung stunden 15 "\$RESTIC_LOG"/plist de.ggdigital.sicherung stunden 15 "$LOG"/
+ausschluss.txt|s/^node_modules$//
+ausschluss.txt|s/^\$HOME\/.claude\/debug$//
+ausschluss.txt|s/^\*\.mp4$//
+ausschluss.txt|s/^~\[\$\]\*$/~$*/
+ausschluss.txt|s/^\$HOME\/.gg-sicherung$//
+ausschluss.txt|s/^\$HOME\/.claude\/\*\*\/\*\.jsonl$/*.jsonl/
+wiederherstellen.sh|s/\[ -n "\$(ls -A "\$ziel" 2>\/dev\/null)" \]/false/
+wiederherstellen.sh|s/<= tag/<= "9999"/
+wiederherstellen.sh|s/\[ -n "\$(ls -A "\$ziel")" \] || stop/true || stop/
+wiederherstellen.sh|s/{ rm -rf "\$TRESOR"; stop "Passwort passt nicht/{ stop "Passwort passt nicht/
+aktualisieren.sh|s/verify-tag "\$1"/rev-parse "$1"/
+aktualisieren.sh|s/^  git -c gpg.format=ssh/  git show "$1:vertrauen\/allowed_signers" >"$VERTRAUEN"; git -c gpg.format=ssh/
+aktualisieren.sh|s/= "\$1" \] || return 1/= "$1" ] || true/
+aktualisieren.sh|s/git merge-base --is-ancestor HEAD "\$1^{commit}"/true/
+aktualisieren.sh|s/if geprueft "\$tag"; then neu=\$tag; break; fi/if geprueft "$tag"; then neu=$tag; fi; break/
+aktualisieren.sh|s/git rev-parse "\$2" >>"\$ABGELEHNT"/echo "$2" >>"$ABGELEHNT"/;s/grep -Fqx -- "\$(git rev-parse "\$1" 2>\/dev\/null)"/grep -Fqx -- "$1"/
+aktualisieren.sh|s/aktuell=\$(cat "\$VERSION_DATEI" 2>\/dev\/null) || abbruch "Versionsdatei fehlt – Updates gesperrt"/aktuell=$(git describe --tags --exact-match HEAD 2>\/dev\/null || echo v0)/
+aktualisieren.sh|s/^echo "\$neu" >"\$VERSION_DATEI"$/true/
+aktualisieren.sh|s/^restic_zeitplan_schreiben || log/true || log/
+aktualisieren.sh|s/git checkout -q --detach "\$alt"/true/
+aktualisieren.sh|s/if ! bash "\$WERKZEUG\/selbsttest.sh"/if false/
+aktualisieren.sh|s/^skill_aktualisieren$/true/
+selbsttest.sh|s/bash -n "\$s" ||/true ||/
+selbsttest.sh|s/backup_argumente | grep -q -- '--files-from'/true/
+installieren.sh|s/head -c 30/head -c 10/
+installieren.sh|s/abcdefghjkmnpqrstuvwxyzACDEFHJKLMNPRTUVWXY34679/a-zA-Z0-9/
+installieren.sh|s/cmp -s "\$PROBE" "\$tmp\/ziel\$PROBE" ||/true ||/
+installieren.sh|s/if \[ -f "\$TRESOR\/config" \]; then echo "✅ Passwort/if false; then echo "✅ Passwort/
+installieren.sh|s/\[ "\$(git -C "\$TRESOR" remote get-url origin 2>\/dev\/null)" != "\$DATEN_REMOTE" \]/false/
+installieren.sh|s/read -r -p "\$1 \[j\/n\] " a <&3/read -r -p "$1 [j\/n] " a <"$EINGABE"/
+installieren.sh|s/sed -i '' "s#^\$alt_home/true "s#^$alt_home/
+installieren.sh|s/if \[ ! -s "\$VERTRAUEN" \]; then/if true; then/
+installieren.sh|s/then gefunden=\$tag; break; fi/then gefunden=$tag; fi; break/
+installieren.sh|s/v="\${v%\/}"   # Tab/true   # Tab/
+installieren.sh|s/if \[ "\$alt" -gt 0 \] \&\& \[ "\$neu" = 0 \]; then/if false; then/
+installieren.sh|s/\[ -z "\$fehlt" \] || stop/true || stop/
+installieren.sh|s/^  # Zeitpläne erst nach dem Zurücksortieren/  zeitplaene # /
+installieren.sh|s/\[ -f "\$AUSSCHLUSS_EIGEN" \] || echo/true || echo/
+installieren.sh|/schritt "Sicherung auf dem neuen Mac/{n;s/pfade_umschreiben/true/;}

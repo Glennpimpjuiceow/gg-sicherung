@@ -1,0 +1,50 @@
+# Was die GG Sicherung NICHT mitnimmt (restic-Muster). Eigene Ergänzungen gehören in
+# ~/.config/gg-sicherung/ausschluss-eigen.txt, diese Datei wird bei Updates ersetzt.
+# Zugangsdateien (.env) werden bewusst MIT gesichert: der Tresor ist verschlüsselt.
+
+# Neu installierbar oder neu erzeugbar
+node_modules
+.next
+.turbo
+.cache
+.parcel-cache
+.svelte-kit
+.venv
+venv
+__pycache__
+*.pyc
+.vercel
+
+# Systemmüll und Office-Sperrdateien
+.DS_Store
+# [$] statt $: restic würde $* sonst als Variable auflösen
+~[$]*
+.Trash
+
+# Der Tresor selbst (falls jemand den ganzen Home-Ordner wählt)
+$HOME/.gg-sicherung
+
+# Claude Code: flüchtige Daten und Gesprächsmitschriften (groß, nicht nötig zum Weiterarbeiten)
+$HOME/.claude/**/*.jsonl
+$HOME/.claude/cache
+$HOME/.claude/debug
+$HOME/.claude/file-history
+$HOME/.claude/ide
+$HOME/.claude/paste-cache
+$HOME/.claude/session-env
+$HOME/.claude/sessions
+$HOME/.claude/shell-snapshots
+$HOME/.claude/statsig
+$HOME/.claude/telemetry
+$HOME/.claude/todos
+$HOME/.claude/plugins/cache
+
+# Obsidian: Zwischenspeicher
+.obsidian/workspace*.json
+.obsidian/cache
+
+# Videos (zu groß für den Sicherungsspeicher; Dateien über 50 MB fallen ohnehin raus)
+*.mp4
+*.mov
+*.m4v
+*.mkv
