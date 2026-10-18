@@ -1,1 +1,2 @@
-# Öffentlicher Signatur-Schlüssel von GG Digital – wird bei Version 1.0 eingetragen.
+# Öffentlicher Signatur-Schlüssel von GG Digital (Updates werden nur mit diesem Schlüssel angenommen)
+sicherung@gg-digital.net namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDqEmw+4dRVrU1F4kUYufyGYBtJYJ/2NQRD0157Cs3NL
