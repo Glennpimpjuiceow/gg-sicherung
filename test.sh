@@ -9,7 +9,18 @@ QUELLE="$(cd "$(dirname "$0")" && pwd)"
 SRC="${SRC:-$QUELLE}"
 : "${RESTIC_BIN:?RESTIC_BIN auf ein restic-Programm setzen}"
 ROT=0; GRUEN=0; ORDNER=()
-trap '[ ${#ORDNER[@]} -gt 0 ] && rm -rf "${ORDNER[@]}"' EXIT
+aufraeumen_test() {
+  [ ${#ORDNER[@]} -gt 0 ] || return 0
+  local o d
+  # eingehängte Testpakete zuerst lösen, sonst bleiben sie nach rm -rf im System hängen
+  for o in "${ORDNER[@]}"; do
+    # Paket erkennen am Einhängepunkt ODER am Ort der .dmg-Datei (ein kaputtes Skript hängt sie woanders ein)
+    hdiutil info | awk -v o="$o" '/^image-path/ {img = (index($0, o) || index($0, "/private" o))}
+      /^\/dev\/disk/ && (img || index($0, o) || index($0, "/private" o)) {print $1}' | sort -u | while read -r d; do hdiutil detach -quiet -force "$d" 2>/dev/null; done
+  done
+  rm -rf "${ORDNER[@]}"
+}
+trap aufraeumen_test EXIT
 erg() { if [ "$2" = 0 ]; then GRUEN=$((GRUEN + 1)); else ROT=$((ROT + 1)); echo "  ROT: $1"; fi; }
 ja() { "$@" >/dev/null 2>&1; echo $?; }
 nein() { "$@" >/dev/null 2>&1 && echo 1 || echo 0; }
@@ -243,6 +254,123 @@ t_installer() {
   erg "Passwort: jedes Mal neu" "$([ "$pw" != "$(GGS_NUR_LADEN=1 bash -c "source '$SRC/installieren.sh'; passwort_neu")" ]; echo $?)"
 }
 
+t_teilen() {
+  neu; einrichten
+  export ZIELORDNER="$T/schreibtisch" FREIGABEN="$GGS_HOME/freigaben.log"
+  # Ersatz für osascript: nimmt das Fenster-Skript an und lässt es von Apples osacompile prüfen
+  # (ungültiges Skript = Fenster scheitert, wie am echten Mac). OSA_FEHLER=1 simuliert „kein Bildschirm“.
+  printf '#!/bin/bash\ncat > "%s/osa.applescript"\n[ -z "${OSA_FEHLER:-}" ] || exit 1\nosacompile -o "%s/osa.scpt" "%s/osa.applescript"\n' "$T" "$T" "$T" >"$T/bin/osascript"
+  chmod +x "$T/bin/osascript"; local pfad_vorher=$PATH; export PATH="$T/bin:$PATH"
+  fenster_pw() { sed -n 's/^set pw to "\(.*\)"$/\1/p' "$T/osa.applescript" 2>/dev/null; }
+  local s="$SRC/teilen.sh" p="$HOME/Documents/Projekt" aus pkt pw g
+  rm -f "$p/riesig.bin"
+  # Zugangsdateien, die alle herausgefiltert werden müssen (auch Großschreibung, Unterordner)
+  mkdir -p "$p/sub/.aws" "$p/.git" "$p/node_modules"
+  echo geheim >"$p/id_ed25519"; echo zert >"$p/server.PEM"; echo t >"$p/.npmrc"; echo t >"$p/.netrc"
+  echo t >"$p/prod.env"; echo t >"$p/.envrc"; echo t >"$p/sub/credentials.json"; echo t >"$p/sub/.aws/credentials"
+  echo t >"$p/.git/config"; echo t >"$p/Login.keychain-db"; echo t >"$p/zert.pfx"
+  echo "Folien" >"$p/praesentation.key"; echo "Liste" >"$p/id_liste.txt"   # keine Zugangsdaten
+  ln -s /etc/hosts "$p/verknuepfung"
+  mkdir -p "$T/tmpd"
+  aus=$(TMPDIR="$T/tmpd" bash "$s" "$p" 2>&1); erg "Teilen läuft" $?
+  pkt=$(sed -n 's/^✅ Paket: \(.*\.dmg\) .*/\1/p' <<<"$aus"); pw=$(fenster_pw)
+  erg "keine Zwischenordner bleiben liegen" "$([ -z "$(ls -A "$T/tmpd")" ]; echo $?)"
+  erg "Passwort steht NICHT in der Ausgabe" "$(nein grep -qF "$pw" <<<"$aus")"
+  oeffnen() { mkdir -p "$T/m"; printf '%s' "$2" | hdiutil attach -quiet -stdinpass -nobrowse -readonly -mountpoint "$T/m" "$1"; }
+  zu() { hdiutil detach -quiet "$T/m" 2>/dev/null || hdiutil detach -quiet -force "$T/m" 2>/dev/null; }
+  oeffnen "$pkt" "$pw"; erg "Paket öffnet mit dem Paket-Passwort" $?
+  erg "Inhalt unverändert drin" "$(ja cmp "$p/kunden.jsonl" "$T/m/Projekt/kunden.jsonl")"
+  for g in .env id_ed25519 server.PEM .npmrc .netrc prod.env .envrc sub/credentials.json sub/.aws .git node_modules Login.keychain-db zert.pfx; do
+    erg "nicht im Paket: $g" "$([ ! -e "$T/m/Projekt/$g" ]; echo $?)"
+  done
+  erg "Keynote-Datei (.key) bleibt drin" "$([ -f "$T/m/Projekt/praesentation.key" ]; echo $?)"
+  erg "id_liste.txt bleibt drin" "$([ -f "$T/m/Projekt/id_liste.txt" ]; echo $?)"
+  erg "Verknüpfungen werden nicht mitgenommen" "$([ ! -e "$T/m/Projekt/verknuepfung" ] && [ ! -L "$T/m/Projekt/verknuepfung" ]; echo $?)"
+  erg "Gegenprobe: .env liegt in der Quelle" "$([ -f "$p/.env" ]; echo $?)"
+  zu
+  erg "falsches Passwort öffnet nicht" "$(nein oeffnen "$pkt" falsch-falsch)"; zu
+  erg "Ausgabe nennt herausgefilterte Zugangsdaten" "$(ja grep -q 'credentials.json' <<<"$aus")"
+  erg "Protokoll: genau eine Freigabe" "$([ "$(wc -l <"$FREIGABEN" | tr -d ' ')" = 1 ]; echo $?)"
+  erg "Protokoll ohne Passwort" "$(nein grep -qF "$pw" "$FREIGABEN")"
+  rm -f "$T/osa.applescript"
+  erg "Passwort nirgends unter Home gespeichert" "$(nein grep -rqF "$pw" "$HOME")"
+
+  local vorher; vorher=$(shasum "$pkt")
+  bash "$s" "$p" >/dev/null 2>&1
+  erg "gleicher Name → neues Paket mit -2" "$([ -f "${pkt%.dmg}-2.dmg" ]; echo $?)"
+  erg "erstes Paket unverändert" "$([ "$(shasum "$pkt")" = "$vorher" ]; echo $?)"
+
+  # Inhalt sieht nach Schlüssel aus (umbenannter privater Schlüssel) → kein Paket ohne Ja
+  mkdir -p "$T/mitschluessel"; echo "Notiz" >"$T/mitschluessel/a.md"
+  printf -- '-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n' >"$T/mitschluessel/deploy"
+  local zahl; zahl=$(ls "$ZIELORDNER" | wc -l | tr -d ' ')
+  aus=$(bash "$s" "$T/mitschluessel" 2>&1)
+  erg "Schlüssel-Inhalt → kein Paket" "$([ "$(ls "$ZIELORDNER" | wc -l | tr -d ' ')" = "$zahl" ]; echo $?)"
+  erg "Schlüssel-Inhalt → Datei wird genannt" "$(ja grep -q 'deploy' <<<"$aus")"
+  erg "Schlüssel-Inhalt mit ausdrücklichem Ja → Paket" "$(FUNDE_OK=1 ja bash "$s" "$T/mitschluessel")"
+
+  # Geschützte Bereiche gar nicht erst annehmen
+  mkdir -p "$HOME/.ssh" "$HOME/.aws/sub" "$HOME/Library/Prefs"; echo k >"$HOME/.ssh/github"; echo k >"$HOME/.aws/sub/x"; echo x >"$HOME/Library/Prefs/a"
+  erg "~/.ssh wird abgelehnt" "$(nein bash "$s" "$HOME/.ssh")"
+  erg "Unterordner von ~/.aws wird abgelehnt" "$(nein bash "$s" "$HOME/.aws/sub")"
+  erg "ganzer Benutzerordner wird abgelehnt" "$(nein bash "$s" "$HOME")"
+  erg "Library wird abgelehnt" "$(nein bash "$s" "$HOME/Library/Prefs")"
+  erg "Zugangsdatei direkt (.env) wird als solche abgelehnt" "$(bash "$s" "$p/.env" 2>&1 | grep -q 'ist eine Zugangsdatei'; echo $?)"
+  erg "Zugangsdatei direkt, Großschreibung (.ENV) wird als solche abgelehnt" "$(cp "$p/.env" "$T/X.ENV"; bash "$s" "$T/X.ENV" 2>&1 | grep -q 'ist eine Zugangsdatei'; echo $?)"
+
+  # Abbruch beim Passwort-Fenster → das ungeprüfte Paket darf nicht liegen bleiben
+  zahl=$(ls "$ZIELORDNER" | wc -l | tr -d ' ')
+  erg "Fenster scheitert → Abbruch" "$(OSA_FEHLER=1 nein bash "$s" "$HOME/Documents/Vault")"
+  erg "Fenster scheitert → kein Paket bleibt liegen" "$([ "$(ls "$ZIELORDNER" | wc -l | tr -d ' ')" = "$zahl" ]; echo $?)"
+
+  local n="$HOME/Documents/Vault/Notiz.md" erster
+  erster=$(restic_t snapshots --json | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["short_id"])')
+  echo "Stand v2" >"$n"
+  aus=$(bash "$s" "$n" "$erster" 2>&1)
+  pkt=$(sed -n 's/^✅ Paket: \(.*\.dmg\) .*/\1/p' <<<"$aus"); pw=$(fenster_pw)
+  oeffnen "$pkt" "$pw"
+  erg "früherer Stand wird geteilt (v1, nicht v2)" "$(ja grep -q 'v1' "$T/m/Notiz.md")"; zu
+
+  erg "unbekannter Pfad → Abbruch" "$(nein bash "$s" "$HOME/gibtsnicht")"
+  mkdir -p "$T/nurgeheim"; echo X=1 >"$T/nurgeheim/.env"
+  erg "nur Zugangsdaten → Abbruch statt leerem Paket" "$(nein bash "$s" "$T/nurgeheim")"
+  erg "großes Paket braucht Bestätigung" "$(MAX_MB=0 nein bash "$s" "$HOME/Documents/Vault")"
+  erg "mit Bestätigung geht es" "$(MAX_MB=0 GROSS_OK=1 ja bash "$s" "$HOME/Documents/Vault")"
+  erg "kein Testpaket bleibt eingehängt" "$(hdiutil info | grep -q "$T" && echo 1 || echo 0)"
+  # Ordnername mit Anführungszeichen und Backslash: Fenster-Skript bleibt gültig, Name bleibt Text
+  mkdir -p "$T/Böse \"Name\" & (do shell script \"id\")\\"; echo x >"$T/Böse \"Name\" & (do shell script \"id\")\\/a.txt"
+  erg "Name mit Anführungszeichen/Backslash → Fenster funktioniert" "$(ja bash "$s" "$T/Böse \"Name\" & (do shell script \"id\")\\")"
+  erg "Ordner über dem Benutzerordner wird abgelehnt" "$(nein bash "$s" "$T")"
+  mkdir -p "$T/zeile
+umbruch"; echo t >"$T/zeile
+umbruch/.ENV"; echo n >"$T/zeile
+umbruch/notiz.md"
+  bash "$s" "$T/zeile
+umbruch" >/dev/null 2>&1; pkt="$ZIELORDNER/GG-Freigabe-zeile_umbruch-$(date +%Y-%m-%d).dmg"; pw=$(fenster_pw)
+  erg "Zeilenumbruch → lesbarer Paketname" "$([ -f "$pkt" ]; echo $?)"
+  oeffnen "$pkt" "$pw"
+  erg "Zeilenumbruch im Namen umgeht den Filter nicht" "$([ -f "$T/m/zeile
+umbruch/notiz.md" ] && [ ! -e "$T/m/zeile
+umbruch/.ENV" ]; echo $?)"; zu
+  mkdir -p "$T/mitfifo"; echo n >"$T/mitfifo/a.md"; mkfifo "$T/mitfifo/rohr"
+  erg "Sonderdatei (FIFO) lässt das Werkzeug nicht hängen" "$(perl -e 'alarm 60; exec @ARGV' bash "$s" "$T/mitfifo" >/dev/null 2>&1; echo $?)"
+  mkdir -p "$T/token1" "$T/token2"; echo "OPENAI=sk-proj-AbCdEfGhIjKlMnOpQrStUvWx123" >"$T/token1/notiz.txt"
+  printf '\xe9t\xe9 -----BEGIN RSA PRIVATE KEY-----\n' >"$T/token2/alt.csv"
+  erg "OpenAI-Schlüssel (sk-proj-) → kein Paket" "$(nein bash "$s" "$T/token1")"
+  # bewusst mit deutscher UTF-8-Einstellung: dort hält grep Latin-1 ohne LC_ALL=C für binär
+  erg "Schlüssel in Latin-1-Datei → kein Paket" "$(LC_ALL=de_DE.UTF-8 nein bash "$s" "$T/token2")"
+  local nr=0 zeile
+  for zeile in 'API_KEY=abcdefgh12345' 'SECRET_KEY = "abcdefgh12345"' 'Password: hunter2hunter2' 'access_token=abcdefgh1234' \
+      'Authorization: Bearer abcdefghijkl1234' 'STRIPE=whsec_abcdefghijklmnop1234'; do
+    nr=$((nr + 1)); mkdir -p "$T/zuweisung$nr"; echo "$zeile" >"$T/zuweisung$nr/config.py"
+    erg "Zugangswert erkannt: ${zeile%%[=:]*}" "$(nein bash "$s" "$T/zuweisung$nr")"
+  done
+  mkdir -p "$T/harmlos"; printf 'Das Token-Konzept besprechen wir am Montag.\nPasswort: siehe Apple Passwörter\n' >"$T/harmlos/notiz.md"
+  erg "harmloser Text löst keinen Alarm aus" "$(ja bash "$s" "$T/harmlos")"
+  export PATH=$pfad_vorher
+  unset ZIELORDNER FREIGABEN
+}
+
 # ---------- Updates ----------
 signiere() { # <schlüssel> <tag>
   git_ -C "$T/up" -c gpg.format=ssh -c user.signingkey="$1" tag -s "$2" -m "$2" >/dev/null 2>&1
@@ -345,7 +473,7 @@ t_update() {
   export WERKZEUG="$SRC"
 }
 
-alle() { t_sichern; t_wiederherstellen; t_fehlerfaelle; t_installer; t_update; }
+alle() { t_sichern; t_wiederherstellen; t_fehlerfaelle; t_installer; t_teilen; t_update; }
 
 if [ "${1:-}" = --mutation ]; then
   ERGEBNIS=$(mktemp -d); ORDNER+=("$ERGEBNIS"); nr=0

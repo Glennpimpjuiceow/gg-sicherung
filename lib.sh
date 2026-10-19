@@ -126,6 +126,10 @@ sperre_holen() {
 }
 sperre_frei() { [ -n "${SPERRE:-}" ] && rm -rf "$SPERRE"; }
 
+passwort_neu() { # 6 Blöcke à 5 Zeichen, ohne verwechselbare Zeichen
+  LC_ALL=C tr -dc 'abcdefghjkmnpqrstuvwxyzACDEFHJKLMNPRTUVWXY34679' </dev/urandom | head -c 30 | sed 's/.\{5\}/&-/g; s/-$//'
+}
+
 staende_zahl() { restic_ snapshots --json 2>/dev/null | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo 0; }
 
 neuester_stand_alter_min() { # leer, wenn es keinen Stand gibt

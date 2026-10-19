@@ -140,10 +140,6 @@ speicher() {
   echo "✅ $DATEN_REMOTE (privat)"
 }
 
-passwort_neu() { # 6 Blöcke à 5 Zeichen, ohne verwechselbare Zeichen
-  LC_ALL=C tr -dc 'abcdefghjkmnpqrstuvwxyzACDEFHJKLMNPRTUVWXY34679' </dev/urandom | head -c 30 | sed 's/.\{5\}/&-/g; s/-$//'
-}
-
 passwort() {
   schritt "6/9 Sicherungs-Passwort"
   # Gibt es den Tresor schon, gehört das Passwort im Schlüsselbund zu ihm – nie ersetzen

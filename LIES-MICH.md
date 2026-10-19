@@ -21,6 +21,12 @@ Fertig. Ab jetzt läuft alles von allein, auch Updates des Werkzeugs (nur von GG
 - **Eine Mitteilung „GG Sicherung“ erscheint:** Dann hat etwas nicht geklappt. In Claude `/sicherung` fragen, Claude erklärt die Ursache.
 - **Datei von gestern zurückholen:** In Claude z. B. „Hol mir die Notiz Angebote.md von gestern zurück“. Sie landet in einem neuen Ordner `Wiederhergestellt-…`, es wird nie etwas überschrieben.
 
+## Mit GG Digital teilen (nur wenn du willst)
+
+GG Digital sieht nichts von deinen Daten. Brauchst du Hilfe bei einem Projekt, sag in Claude z. B. „Teile den Ordner Angebote mit GG Digital“. Es entsteht ein verschlüsseltes Paket auf dem Schreibtisch, das Paket-Passwort erscheint in einem Fenster (mit Knopf „In Zwischenablage kopieren“). Schick das Paket per WeTransfer und das Passwort **getrennt** (z. B. per WhatsApp).
+
+Bekannte Zugangsdateien (z. B. `.env`, Schlüssel, Zugangsdaten-Dateien) werden herausgefiltert, und sieht ein Inhalt nach Schlüssel oder Token aus, wird kein Paket gebaut. Passwörter in normalen Dokumenten (Excel, Notizen) erkennt das Werkzeug nicht – schau vor dem Teilen kurz drüber. Jede Freigabe steht in `~/.gg-sicherung/freigaben.log`.
+
 ## Neuer Mac
 
 GitHub-Anmeldung und das Passwort aus „Passwörter“ bereithalten, dann in diesem Ordner: `bash installieren.sh --neuer-mac`. Alles kommt in einen Ordner `Wiederhergestellt-…`. Das Zurücksortieren am besten zusammen mit GG Digital machen. **Erst danach** die Sicherung wieder einschalten: `bash installieren.sh --fortsetzen`.

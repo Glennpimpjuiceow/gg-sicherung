@@ -2,6 +2,8 @@
 # Bewusst ohne Mutation (nicht lokal nachstellbar, von Hand bzw. live geprüft):
 #   sichern.sh zweite tresor_belegt-Prüfung nach git add · lib.sh delete-generic-password vor dem Anlegen
 #   installieren.sh "${p%/}" in alle_pfade_im_stand (pfade() entfernt den Schrägstrich schon)
+#   teilen.sh „loesen || stop“ (Trennen-Fehler lässt sich nicht künstlich auslösen)
+#   teilen.sh diff-Gegenprobe nach dem Öffnen (Inhalt weicht im Test nie ab; schützt vor hdiutil-Fehlern)
 #   installieren.sh Tresor-Ordner nicht leer → stop: restic init verweigert das selbst ("already contains keys"),
 #   die Zeile sorgt nur für eine verständliche Meldung
 sichern.sh|s/\[ "\$fern" = "\$(git rev-parse HEAD)" \]/true/
@@ -46,8 +48,8 @@ aktualisieren.sh|s/if ! bash "\$WERKZEUG\/selbsttest.sh"/if false/
 aktualisieren.sh|s/^skill_aktualisieren$/true/
 selbsttest.sh|s/bash -n "\$s" ||/true ||/
 selbsttest.sh|s/backup_argumente | grep -q -- '--files-from'/true/
-installieren.sh|s/head -c 30/head -c 10/
-installieren.sh|s/abcdefghjkmnpqrstuvwxyzACDEFHJKLMNPRTUVWXY34679/a-zA-Z0-9/
+lib.sh|s/head -c 30/head -c 10/
+lib.sh|s/abcdefghjkmnpqrstuvwxyzACDEFHJKLMNPRTUVWXY34679/a-zA-Z0-9/
 installieren.sh|s/cmp -s "\$PROBE" "\$tmp\/ziel\$PROBE" ||/true ||/
 installieren.sh|s/if \[ -f "\$TRESOR\/config" \]; then echo "✅ Passwort/if false; then echo "✅ Passwort/
 installieren.sh|s/\[ "\$(git -C "\$TRESOR" remote get-url origin 2>\/dev\/null)" != "\$DATEN_REMOTE" \]/false/
@@ -61,3 +63,32 @@ installieren.sh|s/\[ -z "\$fehlt" \] || stop/true || stop/
 installieren.sh|s/^  # Zeitpläne erst nach dem Zurücksortieren/  zeitplaene # /
 installieren.sh|s/\[ -f "\$AUSSCHLUSS_EIGEN" \] || echo/true || echo/
 installieren.sh|/schritt "Sicherung auf dem neuen Mac/{n;s/pfade_umschreiben/true/;}
+teilen.sh|s/ '\.npmrc'//
+teilen.sh|s/ 'credentials\*'//
+teilen.sh|s/such+=(-o -iname "\$m")/such+=(-o -name "$m")/
+teilen.sh|s/passt "\$t" "\${GEHEIM_ORDNER\[@\]}" \&\& stop/false \&\& stop/
+teilen.sh|s/case "\$heim\/" in "\$quelle\/"\*) stop/case "$heim\/" in "\/nie\/"*) stop/
+teilen.sh|s/"\$heim\/Library"|"\$heim\/Library"\/\*) stop/"\/nie") stop/
+teilen.sh|s/passt "\$name" "\${GEHEIM_DATEIEN\[@\]}" \&\& stop/false \&\& stop/
+teilen.sh|s/shopt -s nocasematch/shopt -u nocasematch/
+teilen.sh|s/if \[ -s "\$TMP\/funde" \] \&\& \[ -z "\${FUNDE_OK:-}" \]; then/if false; then/
+teilen.sh|s/rsync -a --no-links --no-specials --no-devices "\${ausnahmen/rsync -a --no-specials --no-devices "${ausnahmen/
+teilen.sh|s/rsync -a --no-links --no-specials --no-devices "\${ausnahmen/rsync -a --no-links "${ausnahmen/
+teilen.sh|s/'id_rsa\*'/'id_*'/
+teilen.sh|s/'\*\.pem'/'*.pem' '*.key'/
+teilen.sh|s/|sk-proj-\[A-Za-z0-9_-\]{20,}//
+teilen.sh|s/LC_ALL=C grep -rlaE -D skip/grep -rIlE -D skip/
+teilen.sh|s/-prune -exec rm -rf {} +/-prune -print >\/dev\/null/;s/^\[ -z "\$(find "\$TMP\/paket" -mindepth 1/true || [ -z "$(find "$TMP\/paket" -mindepth 1/
+teilen.sh|s/anzeige=\${paketname\/\/\\"\/\\\\\\"}//;s/anzeige=\${anzeige\/\/\\"\/\\\\\\"}//
+teilen.sh|s/paketname=\$(printf '%s' "\$name" | tr '\\n\\r\/:' '____')/paketname=$name/
+teilen.sh|s/ -encryption AES-256 -stdinpass "\$ziel"/ "$ziel"/
+teilen.sh|s/while \[ -e "\$kandidat" \]; do/while false; do/
+teilen.sh|s/^pw=""$/true/;s/"\$(basename "\$ziel")" >>"\$FREIGABEN"/"$(basename "$ziel") $pw" >>"$FREIGABEN"/
+teilen.sh|s/\[ "\$dateien" -gt 0 \] || stop/true || stop/
+teilen.sh|s/if \[ "\$mb" -gt "\$MAX_MB" \]/if false/
+teilen.sh|s/herkunft="\$TMP\/stand\$q"; break/herkunft="$q"; break/
+teilen.sh|s/\[ -n "\${TMP:-}" \] \&\& rm -rf "\$TMP"/true/
+teilen.sh|s/\[ -z "\$FERTIG" \] \&\& \[ -n "\$ziel" \] \&\& rm -f "\$ziel"/true/
+teilen.sh|s/|| stop "Passwort-Fenster ließ sich nicht öffnen/|| true "Passwort-Fenster ließ sich nicht öffnen/
+teilen.sh|s/grep -rlaiE -D skip/grep -rlaE -D skip/
+teilen.sh|s/\[ "\$r1" -le 1 \] \&\& \[ "\$r2" -le 1 \] || stop/true || stop/;s/^ALLGEMEIN_MUSTER=.*$/ALLGEMEIN_MUSTER='(['/
