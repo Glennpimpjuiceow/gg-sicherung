@@ -17,6 +17,9 @@ GH_SHA_amd64=b245f24eb2bf5f75b426b4c26da3651a107f8d5b6f4fddfbfccc5679041378b3
 WERKZEUG_REPO="${WERKZEUG_REPO:-Glennpimpjuiceow/gg-sicherung}"
 WERKZEUG_URL="${WERKZEUG_URL:-https://github.com/$WERKZEUG_REPO.git}"
 PAKET_VERTRAUEN="${PAKET_VERTRAUEN:-$PAKET/vertrauen/allowed_signers}"
+# Fingerabdruck der Erst-Version (Zeile „<version> <commit>“). Das Paket kommt direkt von GG Digital und ist
+# damit der Vertrauensanker – genau dieser Stand wird installiert. Spätere Updates brauchen die Unterschrift.
+PAKET_VERSION="${PAKET_VERSION:-$PAKET/version.txt}"
 DATEN_NAME=gg-sicherung-daten
 GH="${GH:-$GGS_HOME/bin/gh}"
 EINGABE="${EINGABE:-/dev/tty}"   # Antworten kommen von der Tastatur (test.sh: aus einer Datei)
@@ -74,7 +77,7 @@ github() {
 }
 
 werkzeug() {
-  schritt "3/9 Werkzeug holen (nur von GG Digital signierte Version)"
+  schritt "3/9 Werkzeug holen (nur von GG Digital freigegebene Version)"
   # Der Vertrauensanker wird nur beim allerersten Mal gesetzt, nie bei einem Neustart ersetzt
   if [ ! -s "$VERTRAUEN" ]; then
     grep -qv '^#' "$PAKET_VERTRAUEN" 2>/dev/null || stop "Vertrauensliste im Paket fehlt oder ist leer"
@@ -82,10 +85,27 @@ werkzeug() {
   fi
   if [ ! -d "$WERKZEUG/.git" ]; then
     netz git clone -q "$WERKZEUG_URL" "$WERKZEUG" \
-      || { rm -rf "$WERKZEUG"; stop "Werkzeug nicht ladbar – hat GG Digital dich schon eingeladen? (Mail von GitHub annehmen)"; }
+      || { rm -rf "$WERKZEUG"; stop "Werkzeug nicht ladbar – Internet prüfen und neu starten"; }
   fi
-  # Höchste Version, die echt signiert ist und ihren Namen trägt (ungeprüfte Tags blockieren nicht)
-  local tag gefunden=""
+  local tag gefunden="" vers commit
+  # Schon eingerichtet (Neustart, neuer Mac mit altem Paket): nie auf den Paket-Stand zurückdrehen –
+  # Updates kommen ausschließlich über aktualisieren.sh
+  if [ -s "$VERSION_DATEI" ] && git -C "$WERKZEUG" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+    echo "✅ Version $(cat "$VERSION_DATEI") ist schon eingerichtet"; return 0
+  fi
+  # Weg 1: Fingerabdruck aus dem Paket – genau dieser Stand, sonst Abbruch
+  if [ -s "$PAKET_VERSION" ]; then
+    read -r vers commit <"$PAKET_VERSION"
+    [[ "$vers" =~ ^v[0-9]+(\.[0-9]+)*$ ]] || stop "Versionsangabe im Paket ist beschädigt – Abbruch"
+    [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || stop "Versionsangabe im Paket ist beschädigt – Abbruch"
+    git -C "$WERKZEUG" cat-file -e "$commit^{commit}" 2>/dev/null || stop "Version $vers ist im Werkzeug nicht zu finden – Abbruch"
+    git -C "$WERKZEUG" checkout -q --detach "$commit" || stop "Version $vers ließ sich nicht auspacken"
+    [ "$(git -C "$WERKZEUG" rev-parse HEAD)" = "$commit" ] || stop "Version $vers stimmt nicht mit dem Paket überein – Abbruch"
+    echo "$vers" >"$VERSION_DATEI"
+    echo "✅ Version $vers geprüft (Fingerabdruck aus dem Paket)"
+    return 0
+  fi
+  # Weg 2: höchste Version, die echt signiert ist und ihren Namen trägt (ungeprüfte Tags blockieren nicht)
   for tag in $(git -C "$WERKZEUG" tag -l 'v[0-9]*' | sort -V -r); do
     if git -C "$WERKZEUG" -c gpg.format=ssh -c gpg.ssh.allowedSignersFile="$VERTRAUEN" verify-tag "$tag" >/dev/null 2>&1 \
       && [ "$(git -C "$WERKZEUG" cat-file tag "$tag" | sed -n 's/^tag //p')" = "$tag" ]; then gefunden=$tag; break; fi

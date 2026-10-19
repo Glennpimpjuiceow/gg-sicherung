@@ -470,6 +470,28 @@ t_update() {
   cp "$T/fremd.pub" "$T/anderer-anker"; echo "x@y namespaces=\"git\" $(cat "$T/fremd.pub")" >"$T/anderer-anker"
   (export WERKZEUG_URL="$T/up" PAKET_VERTRAUEN="$T/anderer-anker"; installer werkzeug)
   erg "Neustart ersetzt die Vertrauensliste nicht" "$(ja grep -q glenn@gg "$VERTRAUEN")"
+
+  # Erstinstallation über den Fingerabdruck im Paket (ohne signiertes Tag)
+  local pin; pin=$(git -C "$T/up" rev-parse 'v1.0.5^{commit}')
+  echo "v1.0.5 $pin" >"$T/version.txt"
+  rm -rf "$w" "$VERTRAUEN" "$VERSION_DATEI"
+  (export WERKZEUG_URL="$T/up" PAKET_VERTRAUEN="$T/up/vertrauen/allowed_signers" PAKET_VERSION="$T/version.txt"; installer werkzeug); erg "Fingerabdruck: Installer holt Werkzeug" $?
+  erg "Fingerabdruck: genau dieser Stand" "$([ "$(git -C "$w" rev-parse HEAD)" = "$pin" ] && [ "$(cat "$VERSION_DATEI")" = v1.0.5 ]; echo $?)"
+  echo "v1.0.5 0123456789abcdef0123456789abcdef01234567" >"$T/falsch.txt"
+  rm -rf "$w" "$VERTRAUEN" "$VERSION_DATEI"
+  erg "Fingerabdruck unbekannt → verständlicher Abbruch" "$( (GGS_NUR_LADEN=1 source "$SRC/installieren.sh"; export WERKZEUG_URL="$T/up" PAKET_VERTRAUEN="$T/up/vertrauen/allowed_signers" PAKET_VERSION="$T/falsch.txt"; werkzeug) 2>&1 | grep -q 'nicht zu finden'; echo $?)"
+  echo "v1.0.5 kaputt" >"$T/kaputt.txt"; rm -rf "$w" "$VERTRAUEN" "$VERSION_DATEI"
+  erg "Fingerabdruck beschädigt → verständlicher Abbruch" "$( (GGS_NUR_LADEN=1 source "$SRC/installieren.sh"; export WERKZEUG_URL="$T/up" PAKET_VERTRAUEN="$T/up/vertrauen/allowed_signers" PAKET_VERSION="$T/kaputt.txt"; werkzeug) 2>&1 | grep -q 'beschädigt'; echo $?)"
+  # Nach Fingerabdruck-Installation kommt ein späteres signiertes Update normal an
+  rm -rf "$w" "$VERTRAUEN" "$VERSION_DATEI"
+  (export WERKZEUG_URL="$T/up" PAKET_VERTRAUEN="$T/up/vertrauen/allowed_signers" PAKET_VERSION="$T/version.txt"; installer werkzeug)
+  bash "$u" >/dev/null 2>&1
+  erg "Fingerabdruck-Installation bekommt signierte Updates" "$([ "$(cat "$VERSION_DATEI")" = v1.0.12 ]; echo $?)"
+  local stand; stand=$(git -C "$w" rev-parse HEAD)
+  (export WERKZEUG_URL="$T/up" PAKET_VERTRAUEN="$T/up/vertrauen/allowed_signers" PAKET_VERSION="$T/version.txt"; installer werkzeug)
+  erg "Installer-Neustart dreht ein Update nicht zurück" "$([ "$(cat "$VERSION_DATEI")" = v1.0.12 ] && [ "$(git -C "$w" rev-parse HEAD)" = "$stand" ]; echo $?)"
+  echo "foo $pin" >"$T/vfalsch.txt"; rm -rf "$w" "$VERTRAUEN" "$VERSION_DATEI"
+  erg "Versionsname im Paket ungültig → Abbruch" "$( (GGS_NUR_LADEN=1 source "$SRC/installieren.sh"; export WERKZEUG_URL="$T/up" PAKET_VERTRAUEN="$T/up/vertrauen/allowed_signers" PAKET_VERSION="$T/vfalsch.txt"; werkzeug) 2>&1 | grep -q 'beschädigt'; echo $?)"
   export WERKZEUG="$SRC"
 }
 

@@ -92,3 +92,8 @@ teilen.sh|s/\[ -z "\$FERTIG" \] \&\& \[ -n "\$ziel" \] \&\& rm -f "\$ziel"/true/
 teilen.sh|s/|| stop "Passwort-Fenster ließ sich nicht öffnen/|| true "Passwort-Fenster ließ sich nicht öffnen/
 teilen.sh|s/grep -rlaiE -D skip/grep -rlaE -D skip/
 teilen.sh|s/\[ "\$r1" -le 1 \] \&\& \[ "\$r2" -le 1 \] || stop/true || stop/;s/^ALLGEMEIN_MUSTER=.*$/ALLGEMEIN_MUSTER='(['/
+installieren.sh|s/\[\[ "\$commit" =~ \^\[0-9a-f\]{40}\$ \]\] || stop/true || stop/
+installieren.sh|s/git -C "\$WERKZEUG" cat-file -e "\$commit^{commit}" 2>\/dev\/null || stop/true || stop/
+installieren.sh|s/git -C "\$WERKZEUG" checkout -q --detach "\$commit" || stop/git -C "$WERKZEUG" checkout -q --detach "$(git -C "$WERKZEUG" tag -l 'v*' | sort -V | tail -1)^{commit}" || stop/
+installieren.sh|s/if \[ -s "\$VERSION_DATEI" \] \&\& git -C "\$WERKZEUG" rev-parse -q --verify HEAD/if false \&\& git -C "$WERKZEUG" rev-parse -q --verify HEAD/
+installieren.sh|s/\[\[ "\$vers" =~ \^v\[0-9\]+(\\\.\[0-9\]+)\*\$ \]\] || stop/true || stop/

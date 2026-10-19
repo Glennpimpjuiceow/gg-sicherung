@@ -6,7 +6,7 @@ Dein Claude-Arbeitsplatz (Einstellungen, Skills, Erinnerungen, Vault und die Ord
 
 ## Einrichten (einmalig, ca. 15 Minuten)
 
-1. **GitHub-Konto** bereithalten (kostenlos auf github.com). GG Digital lädt dich zum Werkzeug ein: Die Einladungs-Mail von GitHub annehmen.
+1. **GitHub-Konto** bereithalten (kostenlos auf github.com).
 2. Diesen Ordner öffnen, im Terminal eingeben: `bash installieren.sh`
 3. Den Fragen folgen: im Browser bei GitHub anmelden, auswählen, was gesichert werden soll.
 4. **Das angezeigte Passwort in „Passwörter“ (Apple) speichern**, Name „GG Sicherung“, und einmal zur Kontrolle abtippen.
